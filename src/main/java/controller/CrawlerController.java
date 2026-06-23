@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.bson.Document;
 import workers.MongoWriterWorker;
 import workers.ScraperWorker;
@@ -30,17 +31,24 @@ public class CrawlerController {
     
     public static final BlockingQueue<ScrapedDocument> RESULTS_QUEUE = new LinkedBlockingQueue<>();
     
+    public static final int MAX_ARTICLES = 25;
+    
+    public static final AtomicInteger ACCEPTED_ARTICLE_COUNT = new AtomicInteger(0);
+    
+    public static final Object URL_LIMIT_LOCK = new Object();
+    
     public static void main(String[] args){
         String seedURL = "https://en.wikipedia.org/wiki/Ayrton_Senna";
         
         URL_QUEUE.add(seedURL);
         VISITED_SET.add(seedURL);
+        ACCEPTED_ARTICLE_COUNT.incrementAndGet();
 
         System.out.println("Initializing Column Crawler engine....");
 
-        String mongoURL = "mongodb://localhost:27017";
+        String mongoURI = "mongodb://mongoadmin:student1@localhost:27017/?authSource=admin";
 
-        try (MongoClient mongoClient = MongoClients.create(mongoURL)) {
+        try (MongoClient mongoClient = MongoClients.create(mongoURI)) {
             MongoDatabase database = mongoClient.getDatabase("column_crawler");
             MongoCollection<Document> collection = database.getCollection("scraped_documents");
 
@@ -56,12 +64,12 @@ public class CrawlerController {
             ExecutorService mongoWriterPool = Executors.newFixedThreadPool(numberOfMongoWriters);
             
             for (int i = 1; i <= numberOfScrapers; i++){
-                String workerId = "SCRAPER THREAD" + i;
+                String workerId = "SCRAPER THREAD " + i;
                 scraperPool.execute(new ScraperWorker(workerId));
             }
             
-            for(int i = 1; i < numberOfMongoWriters; i++){
-                String workerId = "MONGO WRITER" + i;
+            for(int i = 1; i <= numberOfMongoWriters; i++){
+                String workerId = "MONGO WRITER " + i;
                 mongoWriterPool.execute(new MongoWriterWorker(workerId, collection));
             }
             

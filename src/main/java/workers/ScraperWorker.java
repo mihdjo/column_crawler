@@ -51,16 +51,26 @@ public class ScraperWorker implements Runnable {
 
                     Elements links = doc.select("a[href]");
 
+                    int addedLinks = 0;
+
                     for (Element link : links) {
                         String nextUrl = normalizeUrl(link.absUrl("href"));
 
                         if (isAllowedWikipediaArticle(nextUrl)) {
-                            if (CrawlerController.VISITED_SET.add(nextUrl)) {
+                            if (tryAddUrl(nextUrl)) {
                                 CrawlerController.URL_QUEUE.put(nextUrl);
+                                addedLinks++;
                             }
                         }
                     }
 
+                    if (addedLinks > 0) {
+                        System.out.println(workerId + " added " + addedLinks + " new URLs from " + currentURL);
+                    } else if (CrawlerController.ACCEPTED_ARTICLE_COUNT.get() >= CrawlerController.MAX_ARTICLES) {
+                        System.out.println(workerId + " reached article limit. No new URLs accepted from " + currentURL);
+                    } else {
+                        System.out.println(workerId + " found no new valid URLs from " + currentURL);
+                    }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
 
@@ -101,8 +111,35 @@ public class ScraperWorker implements Runnable {
             return false;
         }
 
-        String articleTitle = url.substring(prefix.length());
+        String title = url.substring(prefix.length());
 
-        return !articleTitle.contains(":");
+        if (title.isBlank()) {
+            return false;
+        }
+
+        if (title.contains(":")) {
+            return false;
+        }
+
+        if (title.equals("Main_Page")) {
+            return false;
+        }
+
+        return true;
+    }
+    
+    private boolean tryAddUrl(String nextUrl) {
+        synchronized (CrawlerController.URL_LIMIT_LOCK) {
+            if (CrawlerController.ACCEPTED_ARTICLE_COUNT.get() >= CrawlerController.MAX_ARTICLES) {
+                return false;
+            }
+
+            if (!CrawlerController.VISITED_SET.add(nextUrl)) {
+                return false;
+            }
+
+            CrawlerController.ACCEPTED_ARTICLE_COUNT.incrementAndGet();
+            return true;
+        }
     }
 }
