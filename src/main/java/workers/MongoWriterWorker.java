@@ -7,8 +7,6 @@ import com.mongodb.client.model.ReplaceOptions;
 import controller.CrawlerController;
 import data.ScrapedDocument;
 import java.util.Date;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.bson.Document;
 
 /**
@@ -27,21 +25,23 @@ public class MongoWriterWorker implements Runnable{
         this.workerId = workerId;
         this.collection = collection;
     }
-    
-    
+
     @Override
     public void run() {
-        while (!Thread.currentThread().isInterrupted()){
+        while (!Thread.currentThread().isInterrupted()) {
             try {
                 ScrapedDocument scrapedDocument = CrawlerController.RESULTS_QUEUE.take();
-                
+
                 saveWithRetry(scrapedDocument);
-                
-                System.out.println(workerId + " stored document: " + scrapedDocument.url());
+
+                int storedCount = CrawlerController.STORED_DOCUMENT_COUNT.incrementAndGet();
+
+                System.out.println(workerId + " stored document: " + scrapedDocument.url()
+                        + " (" + storedCount + "/" + CrawlerController.MAX_ARTICLES + ")");
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 System.out.println(workerId + " was interrupted. Shutting down writer.");
-            } catch (Exception e){
+            } catch (Exception e) {
                 System.out.println(workerId + " failed to write document - " + e.getMessage());
             }
         }

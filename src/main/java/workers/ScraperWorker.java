@@ -63,7 +63,6 @@ public class ScraperWorker implements Runnable {
                             }
                         }
                     }
-
                     if (addedLinks > 0) {
                         System.out.println(workerId + " added " + addedLinks + " new URLs from " + currentURL);
                     } else if (CrawlerController.ACCEPTED_ARTICLE_COUNT.get() >= CrawlerController.MAX_ARTICLES) {

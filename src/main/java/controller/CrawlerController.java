@@ -35,6 +35,8 @@ public class CrawlerController {
     
     public static final AtomicInteger ACCEPTED_ARTICLE_COUNT = new AtomicInteger(0);
     
+    public static final AtomicInteger STORED_DOCUMENT_COUNT = new AtomicInteger(0);
+    
     public static final Object URL_LIMIT_LOCK = new Object();
     
     public static void main(String[] args){
@@ -56,38 +58,46 @@ public class CrawlerController {
                     Indexes.ascending("url"),
                     new IndexOptions().unique(true)
             );
-            
+
             int numberOfScrapers = 5;
             int numberOfMongoWriters = 3;
-            
+
             ExecutorService scraperPool = Executors.newFixedThreadPool(numberOfScrapers);
             ExecutorService mongoWriterPool = Executors.newFixedThreadPool(numberOfMongoWriters);
-            
-            for (int i = 1; i <= numberOfScrapers; i++){
+
+            for (int i = 1; i <= numberOfScrapers; i++) {
                 String workerId = "SCRAPER THREAD " + i;
                 scraperPool.execute(new ScraperWorker(workerId));
             }
-            
-            for(int i = 1; i <= numberOfMongoWriters; i++){
+
+            for (int i = 1; i <= numberOfMongoWriters; i++) {
                 String workerId = "MONGO WRITER " + i;
                 mongoWriterPool.execute(new MongoWriterWorker(workerId, collection));
             }
-            
+
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 System.out.println("\n Shutdown signal received. Stopping crawler...");
                 scraperPool.shutdownNow();
                 mongoWriterPool.shutdownNow();
             }));
-            
+
             System.out.println(numberOfScrapers + " scraper threads started successfully!");
             System.out.println(numberOfMongoWriters + " Mongo writer threads started successfully!");
-            System.out.println("Crawler running!!! CTRL + C to stop execution. \n");
+            System.out.println("Crawler running!!!\n");
+
+            while (STORED_DOCUMENT_COUNT.get() < MAX_ARTICLES) {
+                Thread.sleep(500);
+            }
+
+            System.out.println("\nArticle limit reached. Stopping crawler...");
+
+            scraperPool.shutdownNow();
+            mongoWriterPool.shutdownNow();
             
-            Thread.currentThread().join();
-        } catch (InterruptedException e){
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             System.out.println("Main thread interrupted.");
-        } catch (MongoException e){
+        } catch (MongoException e) {
             System.out.println("MongoDB error: " + e.getMessage());
         }
     }
