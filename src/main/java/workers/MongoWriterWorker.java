@@ -68,7 +68,7 @@ public class MongoWriterWorker implements Runnable{
                     throw e;
                 }
                 
-                System.out.println(workerId + " Mongo write failed. Retrying attempt"
+                System.out.println(workerId + " Mongo write failed. Retrying attempt "
                     + attempt + "/" + MAX_RETRIES);
                 
                 Thread.sleep(RETRY_DELAY_MS * attempt);
